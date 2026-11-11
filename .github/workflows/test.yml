@@ -56,4 +56,9 @@ jobs:
         # here don't fail the build.
         continue-on-error: true
         shell: msys2 {0}
-        run: ./tests/run.sh
+        # Use Git for Windows, as git-crypt.exe users do.  MSYS2's git prints
+        # POSIX paths (e.g. /tmp/...), which a native program can't open.
+        run: |
+          export PATH="/c/Program Files/Git/cmd:$PATH"
+          git --version
+          ./tests/run.sh
