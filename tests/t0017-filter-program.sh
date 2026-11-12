@@ -17,6 +17,9 @@ expected_commands ()
 }
 
 # Copies the git-crypt binary to DIR/git-crypt and prints that path.
+# Note: on Windows, MSYS2 turns a /tmp/... argument into a Windows path
+# (D:/.../tmp/...) when it runs git, so tests that compare paths read the
+# stored value back with 'git config --get git-crypt.program'.
 copy_git_crypt ()
 {
 	mkdir -p "$1"
@@ -36,11 +39,19 @@ new_repo_with_secret ()
 # doesn't inherit the shell's PATH.
 use_path_without_git_crypt ()
 {
-	export GIT_EXEC_PATH
-	GIT_EXEC_PATH=$(git --exec-path)
-	mkdir -p "$SCENARIO_TMP/git-only"
-	ln -s "$(command -v git)" "$SCENARIO_TMP/git-only/git"
-	PATH="$SCENARIO_TMP/git-only:/usr/bin:/bin"
+	local git
+	git=$(command -v git)
+	PATH="$(dirname "$git"):/usr/bin:/bin"
+	if command -v git-crypt >/dev/null 2>&1; then
+		# git-crypt is installed next to git (e.g. by Homebrew): use a
+		# link to git alone.  (Not on Windows, where ln -s copies Git for
+		# Windows' launcher, which then refuses to run.)
+		export GIT_EXEC_PATH
+		GIT_EXEC_PATH=$(git --exec-path)
+		mkdir -p "$SCENARIO_TMP/git-only"
+		ln -s "$git" "$SCENARIO_TMP/git-only/git"
+		PATH="$SCENARIO_TMP/git-only:/usr/bin:/bin"
+	fi
 	if command -v git-crypt >/dev/null 2>&1; then
 		skip "git-crypt is installed in /usr/bin or /bin"
 	fi
@@ -73,6 +84,7 @@ scenario_program_option_is_used_and_works_without_path ()
 	program=$(copy_git_crypt "$SCENARIO_TMP/my bin")
 	new_repo
 	git config git-crypt.program "$program"
+	program=$(git config --get git-crypt.program)
 	git-crypt init >/dev/null 2>&1
 	assert_eq "$(expected_commands "\"$program\"")" "$(filter_commands)"
 
@@ -101,6 +113,7 @@ scenario_program_option_from_global_config ()
 	program=$(copy_git_crypt "$SCENARIO_TMP/bin")
 	export GIT_CONFIG_GLOBAL=$SCENARIO_TMP/gitconfig
 	git config --global git-crypt.program "$program"
+	program=$(git config --get git-crypt.program)
 	new_repo
 	git-crypt init >/dev/null 2>&1
 	assert_eq "$(expected_commands "\"$program\"")" "$(filter_commands)"
@@ -151,6 +164,7 @@ scenario_refresh_filters_repairs_moved_binary ()
 	old=$(copy_git_crypt "$SCENARIO_TMP/old")
 	new_repo
 	git config git-crypt.program "$old"
+	old=$(git config --get git-crypt.program)
 	git-crypt init >/dev/null 2>&1
 	echo 'secret* filter=git-crypt diff=git-crypt' > .gitattributes
 	echo 'top secret' > secret.txt
@@ -181,6 +195,7 @@ scenario_refresh_filters_applies_program_to_all_keys ()
 	git-crypt init -k prod >/dev/null 2>&1
 	program=$(copy_git_crypt "$SCENARIO_TMP/bin")
 	git config git-crypt.program "$program"
+	program=$(git config --get git-crypt.program)
 
 	run git-crypt refresh-filters
 	assert_status 0
@@ -239,6 +254,7 @@ scenario_unlock_rewrites_absolute_path ()
 	old=$(copy_git_crypt "$SCENARIO_TMP/old")
 	export GIT_CONFIG_GLOBAL=$SCENARIO_TMP/gitconfig
 	git config --global git-crypt.program "$old"
+	old=$(git config --get git-crypt.program)
 	new_repo_with_secret
 	git-crypt export-key "$SCENARIO_TMP/key"
 	git config --global --unset git-crypt.program
