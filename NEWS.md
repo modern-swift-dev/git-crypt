@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## v0.9.1 (2026-11-13)
 * Releases now include installer packages: a `.pkg` for macOS, an
   installer for Windows that adds git-crypt to `PATH`, and `.deb`, `.rpm`,
   Arch Linux and Alpine `.apk` packages for Linux.  The macOS and Linux
