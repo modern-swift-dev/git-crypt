@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## v0.9.0 (2026-11-13)
 * Filter commands now always run `git-crypt` by its bare name, even if
   git-crypt was run by an absolute path, so repositories keep working
   after git-crypt is upgraded or moved.

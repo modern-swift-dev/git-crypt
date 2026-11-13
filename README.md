@@ -333,8 +333,8 @@ were exposed).  A separate document on rewriting history is planned.
 Current Status
 --------------
 
-The latest version of git-crypt is [0.8.0](NEWS.md), released on
-2025-09-23.  git-crypt aims to be bug-free and reliable, meaning it
+The latest version of git-crypt is [0.9.0](NEWS.md), released on
+2026-11-13.  git-crypt aims to be bug-free and reliable, meaning it
 shouldn't crash, malfunction, or expose your confidential data.
 However, it has not yet reached maturity, meaning it is not as
 documented, featureful, or easy-to-use as it should be.  Additionally,
