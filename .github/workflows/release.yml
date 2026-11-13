@@ -1,5 +1,9 @@
-# Builds the release binaries and attaches them to a GitHub release, together
-# with a SHA256SUMS file, then checks that every expected binary is attached.
+# Builds the release binaries and installer packages (for each Linux
+# architecture a .deb, an .rpm, an Arch Linux package, an Alpine .apk and a
+# tarball with a static musl binary; a .pkg for each macOS architecture; and
+# a Windows installer; see packaging/) and attaches them to a GitHub release,
+# together with a SHA256SUMS file, then checks that every expected asset is
+# attached.
 #
 # It makes a release when a push to main changes the VERSION in
 # git-crypt.hpp, which is what merging the pull request opened by
@@ -111,6 +115,7 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
+      VERSION: ${{ needs.prepare.outputs.version }}
       ASSET: git-crypt-${{ needs.prepare.outputs.version }}-${{ matrix.asset }}
     steps:
       - name: Checkout repository
@@ -161,11 +166,133 @@ jobs:
       - name: Smoke test
         shell: bash
         run: ./"$ASSET" version
+      - name: Build static binary (Linux)
+        if: runner.os == 'Linux'
+        # A fully static binary, linked against musl and OpenSSL in Alpine
+        # Linux, for the .apk and the -static.tar.gz.  It runs the tests,
+        # since nothing else tests the musl build.
+        run: |
+          mkdir "$RUNNER_TEMP/static"
+          docker run --rm -v "$PWD:/src:ro" -v "$RUNNER_TEMP/static:/out" alpine:3.24 sh -euc '
+            apk add -q build-base openssl-dev openssl-libs-static bash git gnupg
+            cp -r /src /build && cd /build
+            make clean
+            LDFLAGS=-static make test
+            strip git-crypt
+            install -m 755 git-crypt /out/'
+          if ! file "$RUNNER_TEMP/static/git-crypt" | grep -q 'static'; then
+            file "$RUNNER_TEMP/static/git-crypt"
+            echo "::error::the musl build of git-crypt isn't statically linked"
+            exit 1
+          fi
+          "$RUNNER_TEMP/static/git-crypt" version
+      - name: Build packages (Linux)
+        if: runner.os == 'Linux'
+        env:
+          GIT_CRYPT_VERSION: ${{ env.VERSION }}
+        run: |
+          sudo apt-get install -y xsltproc docbook-xsl docbook-xml
+          make build-man DOCBOOK_XSL=/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
+          gzip -9n man/man1/git-crypt.1
+          case $(uname -m) in
+            x86_64)
+              export NFPM_ARCH=amd64
+              nfpm_tarball=nfpm_2.48.0_Linux_x86_64.tar.gz
+              nfpm_sha256=6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750 ;;
+            aarch64)
+              export NFPM_ARCH=arm64
+              nfpm_tarball=nfpm_2.48.0_Linux_arm64.tar.gz
+              nfpm_sha256=a9a75213763783b7669719e505474c748c5ad7dc66591a195619deb50f85c2f4 ;;
+          esac
+          curl -fsSL -o "$RUNNER_TEMP/nfpm.tar.gz" "https://github.com/goreleaser/nfpm/releases/download/v2.48.0/$nfpm_tarball"
+          echo "$nfpm_sha256  $RUNNER_TEMP/nfpm.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/nfpm.tar.gz" -C "$RUNNER_TEMP" nfpm
+          nfpm="$RUNNER_TEMP/nfpm"
+          NFPM_BINARY=git-crypt "$nfpm" package -f packaging/nfpm.yaml -p deb -t "$ASSET.deb"
+          NFPM_BINARY=git-crypt "$nfpm" package -f packaging/nfpm.yaml -p rpm -t "$ASSET.rpm"
+          NFPM_BINARY=git-crypt "$nfpm" package -f packaging/nfpm.yaml -p archlinux -t "$ASSET.pkg.tar.zst"
+          NFPM_BINARY="$RUNNER_TEMP/static/git-crypt" "$nfpm" package -f packaging/nfpm.yaml -p apk -t "$ASSET.apk"
+          # The tarball's layout mirrors a prefix such as /usr/local.
+          dir="$RUNNER_TEMP/$ASSET-static"
+          install -d "$dir/bin" "$dir/share/man/man1" "$dir/share/doc/git-crypt"
+          install -m 755 "$RUNNER_TEMP/static/git-crypt" "$dir/bin/"
+          install -m 644 man/man1/git-crypt.1.gz "$dir/share/man/man1/"
+          install -m 644 COPYING "$dir/share/doc/git-crypt/"
+          tar -czf "$ASSET-static.tar.gz" -C "$RUNNER_TEMP" --owner=0 --group=0 --numeric-owner "$ASSET-static"
+      - name: Smoke test packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y "./$ASSET.deb"
+          /usr/bin/git-crypt version
+          # Rocky Linux 9 has the oldest glibc and OpenSSL 3 the .rpm supports.
+          docker run --rm -v "$PWD:/pkg:ro" rockylinux/rockylinux:9 \
+            sh -c "dnf install -y -q '/pkg/$ASSET.rpm' && /usr/bin/git-crypt version"
+          docker run --rm -v "$PWD:/pkg:ro" alpine:3.24 \
+            sh -c "apk add -q --allow-untrusted '/pkg/$ASSET.apk' && /usr/bin/git-crypt version"
+          # The archlinux image exists only for x86_64.
+          if [ "$(uname -m)" = x86_64 ]; then
+            docker run --rm -v "$PWD:/pkg:ro" archlinux:latest \
+              sh -c "pacman -Sy --disable-sandbox --noconfirm --noprogressbar >/dev/null && pacman -U --disable-sandbox --noconfirm --noprogressbar '/pkg/$ASSET.pkg.tar.zst' >/dev/null && /usr/bin/git-crypt version"
+          fi
+          mkdir "$RUNNER_TEMP/extracted"
+          tar -xzf "$ASSET-static.tar.gz" -C "$RUNNER_TEMP/extracted"
+          "$RUNNER_TEMP/extracted/$ASSET-static/bin/git-crypt" version
+      - name: Build package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install docbook-xsl
+          # The catalog maps the DocBook DTD to Homebrew's local copy.
+          XML_CATALOG_FILES="$(brew --prefix)/etc/xml/catalog" \
+            make build-man DOCBOOK_XSL="$(brew --prefix docbook-xsl)/docbook-xsl/manpages/docbook.xsl"
+          root="$RUNNER_TEMP/pkgroot" # installed in /usr/local
+          install -d "$root/bin" "$root/share/man/man1"
+          install -m 755 git-crypt "$root/bin/"
+          install -m 644 man/man1/git-crypt.1 "$root/share/man/man1/"
+          pkgbuild --root "$root" --install-location /usr/local \
+            --identifier io.github.modern-swift-dev.git-crypt --version "$VERSION" "$ASSET.pkg"
+      - name: Smoke test package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          sudo installer -pkg "$ASSET.pkg" -target /
+          /usr/local/bin/git-crypt version
+          man -w git-crypt
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "Inno Setup's ISCC.exe not found" }
+          $setup = ($env:ASSET -replace '\.exe$', '') + '-setup'
+          & $iscc /Qp "/DVersion=$env:VERSION" "/DSourceExe=$PWD\$env:ASSET" "/O$PWD" "/F$setup" packaging\git-crypt.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Smoke test installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = ($env:ASSET -replace '\.exe$', '') + '-setup.exe'
+          $dir = "$env:LOCALAPPDATA\Programs\git-crypt"
+          Start-Process -Wait -FilePath ".\$setup" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          & "$dir\git-crypt.exe" version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if (($userPath -split ';') -notcontains $dir) { throw "$dir is not on the user's PATH: $userPath" }
+          # The uninstaller relaunches itself from a temporary copy and returns
+          # at once, so poll until it has removed both the file and the PATH entry.
+          Start-Process -Wait -FilePath "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          for ($i = 0; $i -lt 60; $i++) {
+            $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+            $onPath = ($userPath -split ';') -contains $dir
+            if (-not (Test-Path "$dir\git-crypt.exe") -and -not $onPath) { break }
+            Start-Sleep -Seconds 1
+          }
+          if (Test-Path "$dir\git-crypt.exe") { throw "uninstalling didn't remove $dir\git-crypt.exe" }
+          if ($onPath) { throw "uninstalling didn't remove $dir from the user's PATH: $userPath" }
       - name: Upload build artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.ASSET }}
-          path: ${{ env.ASSET }}
+          path: git-crypt-${{ needs.prepare.outputs.version }}-*
           if-no-files-found: error
 
   publish:

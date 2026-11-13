@@ -2,9 +2,9 @@
 #
 # Release asset bookkeeping for .github/workflows/release.yml.
 #
-# Usage: release-assets.sh expected  VERSION      print the expected binary names
+# Usage: release-assets.sh expected  VERSION      print the expected asset names
 #        release-assets.sh checksums TAG VERSION  (re)generate and upload SHA256SUMS
-#        release-assets.sh verify    TAG VERSION  fail unless every expected binary
+#        release-assets.sh verify    TAG VERSION  fail unless every expected asset
 #                                                 and a matching SHA256SUMS are attached
 #
 # The GitHub repository is taken from $GITHUB_REPOSITORY.  gh must be
@@ -12,15 +12,28 @@
 
 set -euo pipefail
 
-# Keep in sync with the build matrix in release.yml.
+# Keep in sync with the build matrix and the package steps in release.yml.
 expected_assets ()
 {
 	local version=$1
 	echo "git-crypt-$version-linux-x86_64"
+	echo "git-crypt-$version-linux-x86_64.deb"
+	echo "git-crypt-$version-linux-x86_64.rpm"
+	echo "git-crypt-$version-linux-x86_64.pkg.tar.zst"
+	echo "git-crypt-$version-linux-x86_64.apk"
+	echo "git-crypt-$version-linux-x86_64-static.tar.gz"
 	echo "git-crypt-$version-linux-aarch64"
+	echo "git-crypt-$version-linux-aarch64.deb"
+	echo "git-crypt-$version-linux-aarch64.rpm"
+	echo "git-crypt-$version-linux-aarch64.pkg.tar.zst"
+	echo "git-crypt-$version-linux-aarch64.apk"
+	echo "git-crypt-$version-linux-aarch64-static.tar.gz"
 	echo "git-crypt-$version-x86_64.exe"
+	echo "git-crypt-$version-x86_64-setup.exe"
 	echo "git-crypt-$version-macos-arm64"
+	echo "git-crypt-$version-macos-arm64.pkg"
 	echo "git-crypt-$version-macos-x86_64"
+	echo "git-crypt-$version-macos-x86_64.pkg"
 }
 
 sha256 ()

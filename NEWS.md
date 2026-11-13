@@ -1,5 +1,13 @@
 # Change Log
 
+## Unreleased
+* Releases now include installer packages: a `.pkg` for macOS, an
+  installer for Windows that adds git-crypt to `PATH`, and `.deb`, `.rpm`,
+  Arch Linux and Alpine `.apk` packages for Linux.  The macOS and Linux
+  packages include the git-crypt(1) man page.
+* Releases now include a statically linked Linux binary (built with musl),
+  in a tarball with the man page, that runs on any Linux distribution.
+
 ## v0.9.0 (2026-11-13)
 * Filter commands now always run `git-crypt` by its bare name, even if
   git-crypt was run by an absolute path, so repositories keep working

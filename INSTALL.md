@@ -1,3 +1,69 @@
+### Installing a release
+
+Each [GitHub release](https://github.com/modern-swift-dev/git-crypt/releases)
+has installer packages, plain binaries and a `SHA256SUMS` file.  Replace
+`VERSION` below with the release's version (e.g. `0.9.0`).
+
+* **Debian 12+ / Ubuntu 22.04+** (`amd64` and `arm64`): download
+  `git-crypt-VERSION-linux-x86_64.deb` or `git-crypt-VERSION-linux-aarch64.deb`
+  and run:
+
+      sudo apt install ./git-crypt-VERSION-linux-x86_64.deb
+
+* **Fedora / RHEL 9+ / openSUSE Tumbleweed and Leap 16+** (`x86_64` and
+  `aarch64`): download `git-crypt-VERSION-linux-x86_64.rpm` or
+  `git-crypt-VERSION-linux-aarch64.rpm` and run:
+
+      sudo dnf install ./git-crypt-VERSION-linux-x86_64.rpm
+
+  On openSUSE, run
+  `sudo zypper install --allow-unsigned-rpm ./git-crypt-VERSION-linux-x86_64.rpm`.
+
+* **Arch Linux** (`x86_64`, and `aarch64` for Arch Linux ARM): download
+  `git-crypt-VERSION-linux-x86_64.pkg.tar.zst` and run:
+
+      sudo pacman -U ./git-crypt-VERSION-linux-x86_64.pkg.tar.zst
+
+* **Alpine Linux** (`x86_64` and `aarch64`): download
+  `git-crypt-VERSION-linux-x86_64.apk` and run (the package isn't signed with
+  a key Alpine knows):
+
+      sudo apk add --allow-untrusted ./git-crypt-VERSION-linux-x86_64.apk
+
+  The Linux packages install `/usr/bin/git-crypt` and the git-crypt(1) man
+  page.  The `.deb`, `.rpm` and Arch packages depend on Git and OpenSSL 3; the
+  Alpine package contains a static binary and depends only on Git.
+
+* **Any other Linux** (`x86_64` and `aarch64`):
+  `git-crypt-VERSION-linux-x86_64-static.tar.gz` contains a statically linked
+  binary (built with musl and OpenSSL) that runs on any Linux distribution,
+  plus the man page.  Its layout mirrors a prefix, so to install it in
+  `/usr/local`:
+
+      sudo tar -xzf git-crypt-VERSION-linux-x86_64-static.tar.gz -C /usr/local --strip-components=1
+
+* **macOS**: download `git-crypt-VERSION-macos-arm64.pkg` (Apple silicon) or
+  `git-crypt-VERSION-macos-x86_64.pkg` (Intel).  It installs
+  `/usr/local/bin/git-crypt` and the man page.  The package isn't signed, so
+  macOS blocks it the first time you open it: click Done, then click
+  "Open Anyway" under System Settings > Privacy & Security.  Or install it
+  from Terminal:
+
+      sudo installer -pkg git-crypt-VERSION-macos-arm64.pkg -target /
+
+* **Windows** (x64): run `git-crypt-VERSION-x86_64-setup.exe`.  It installs
+  git-crypt for the current user, without administrator rights, in
+  `%LOCALAPPDATA%\Programs\git-crypt`, and adds that directory to your
+  `PATH`.  Restart open terminals and Git clients so they see the new `PATH`.
+  The installer isn't signed, so SmartScreen may warn about it: click
+  "More info", then "Run anyway".
+
+The filters git-crypt sets up run `git-crypt` by its bare name, so it must be
+on the `PATH` of every program that runs Git, including GUI clients.  If a
+client doesn't find it, set the `git-crypt.program` git config option to the
+full path of git-crypt (see "How Git finds git-crypt" in [README.md](README.md)).
+
+
 ### Dependencies
 
 To build git-crypt, you need:
@@ -125,7 +191,9 @@ binary works, but for a fully self-contained binary build on a musl-based
 distribution such as Alpine Linux instead.
 
 *Tested on Debian 12 (bookworm): `ldd` reports "not a dynamic executable" and
-`make test` passes.  The Alpine variant is untested.*
+`make test` passes.  The Release workflow builds the static binaries it ships
+on Alpine Linux, with the `build-base`, `openssl-dev` and
+`openssl-libs-static` packages and `LDFLAGS=-static make test`.*
 
 
 ### Building The Man Page

@@ -1,0 +1,78 @@
+# nfpm configuration for the Linux packages built by
+# .github/workflows/release.yml.  Run nfpm from the root of the repository,
+# after `make ENABLE_MAN=yes` and `gzip -9n man/man1/git-crypt.1`, with:
+#
+#   GIT_CRYPT_VERSION  the version, e.g. 0.9.0
+#   NFPM_ARCH          the architecture, in Go's naming: amd64 or arm64
+#   NFPM_BINARY        the git-crypt binary to package
+#
+# The .deb, .rpm and Arch packages contain the glibc binary, which links
+# OpenSSL 3's libcrypto dynamically (it is built on Ubuntu 22.04), hence their
+# dependencies below.  The .apk (Alpine) contains the static musl binary.
+name: git-crypt
+arch: ${NFPM_ARCH}
+platform: linux
+version: ${GIT_CRYPT_VERSION}
+section: vcs
+priority: optional
+maintainer: git-crypt maintainers <https://github.com/modern-swift-dev/git-crypt/issues>
+description: |-
+  Transparent file encryption in git
+  git-crypt enables transparent encryption and decryption of files in a git
+  repository.  Files you choose to protect are encrypted when committed and
+  decrypted when checked out.
+vendor: modern-swift-dev
+homepage: https://github.com/modern-swift-dev/git-crypt
+license: GPL-3.0-or-later
+
+overrides:
+  deb:
+    depends:
+      - git
+      # Debian 13 and Ubuntu 24.04 renamed libssl3 to libssl3t64.
+      - libssl3 | libssl3t64
+  rpm:
+    depends:
+      - git
+      # The library rather than a package name, which differs between
+      # Fedora/RHEL (openssl-libs) and openSUSE (libopenssl3).
+      - libcrypto.so.3()(64bit)
+  archlinux:
+    depends:
+      - git
+      - openssl
+  apk:
+    depends:
+      - git
+
+contents:
+  - src: ${NFPM_BINARY}
+    dst: /usr/bin/git-crypt
+    expand: true
+    file_info:
+      mode: 0755
+  - src: man/man1/git-crypt.1.gz
+    dst: /usr/share/man/man1/git-crypt.1.gz
+    file_info:
+      mode: 0644
+  - src: COPYING
+    dst: /usr/share/doc/git-crypt/copyright
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: COPYING
+    dst: /usr/share/licenses/git-crypt/COPYING
+    packager: rpm
+    type: license
+    file_info:
+      mode: 0644
+  - src: COPYING
+    dst: /usr/share/licenses/git-crypt/COPYING
+    packager: archlinux
+    file_info:
+      mode: 0644
+  - src: COPYING
+    dst: /usr/share/licenses/git-crypt/COPYING
+    packager: apk
+    file_info:
+      mode: 0644

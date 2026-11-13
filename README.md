@@ -14,9 +14,13 @@ repository.
 git-crypt was written by [Andrew Ayer](https://www.agwa.name) (agwa@andrewayer.name).
 For more information, see <https://www.agwa.name/projects/git-crypt>.
 
-Building git-crypt
-------------------
-See the [INSTALL.md](INSTALL.md) file.
+Installing and building git-crypt
+---------------------------------
+Each [release](https://github.com/modern-swift-dev/git-crypt/releases) has
+installer packages for macOS (`.pkg`), Windows (`-setup.exe`) and Linux
+(`.deb`, `.rpm`, Arch Linux and Alpine `.apk`), a static Linux binary, and
+plain binaries.  See the [INSTALL.md](INSTALL.md) file for how to install
+them, and how to build git-crypt from source.
 
 To run the integration tests, run `make test` (see
 [tests/README.md](tests/README.md)).
