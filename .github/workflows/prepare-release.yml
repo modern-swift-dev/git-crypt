@@ -48,7 +48,10 @@ jobs:
         id: bump
         env:
           BUMP: ${{ inputs.bump }}
-        run: echo "version=$(.github/scripts/bump-version.sh "$BUMP")" >> "$GITHUB_OUTPUT"
+        # A separate assignment, so that the step fails if the script does.
+        run: |
+          version=$(.github/scripts/bump-version.sh "$BUMP")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Push release branch
         env:
           VERSION: ${{ steps.bump.outputs.version }}

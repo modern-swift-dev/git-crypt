@@ -71,7 +71,10 @@ edit README.md "
 	s/^(The latest version of git-crypt is )\[$cur\](\(NEWS\.md\), released on)\$/\1[$next]\2/
 	s/^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.  git-crypt aims to be bug-free)/$date\1/
 "
-if [ "$(diff README.md "$tmp/README.md" | grep -c '^>')" -ne 2 ]; then
+# Check the result rather than count changed lines: the date doesn't change
+# when the previous release was made on the same day.
+if ! grep -A1 -xF "The latest version of git-crypt is [$next](NEWS.md), released on" "$tmp/README.md" |
+		grep -q "^$date\\.  git-crypt aims to be bug-free"; then
 	die "couldn't update both the version and the date in README.md"
 fi
 
