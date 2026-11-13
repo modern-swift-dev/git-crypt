@@ -41,9 +41,9 @@ DOCBOOK_FLAGS += --param man.output.in.separate.dir 1 \
 
 all: build
 
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 # Build
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 BUILD_MAN_TARGETS-yes = build-man
 BUILD_MAN_TARGETS-no =
 BUILD_TARGETS := build-bin $(BUILD_MAN_TARGETS-$(ENABLE_MAN))
@@ -63,9 +63,9 @@ build-man: man/man1/git-crypt.1
 man/man1/git-crypt.1: man/git-crypt.xml
 	$(XSLTPROC) $(DOCBOOK_FLAGS) $(DOCBOOK_XSL) man/git-crypt.xml
 
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 # Test
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 TEST_OBJFILES = $(filter-out git-crypt.o,$(OBJFILES))
 
 tests/crypto-kat: tests/crypto-kat.o $(TEST_OBJFILES)
@@ -75,9 +75,9 @@ test: build-bin tests/crypto-kat
 	./tests/crypto-kat
 	./tests/run.sh
 
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 # Clean
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 CLEAN_MAN_TARGETS-yes = clean-man
 CLEAN_MAN_TARGETS-no =
 CLEAN_TARGETS := clean-bin $(CLEAN_MAN_TARGETS-$(ENABLE_MAN))
@@ -90,9 +90,9 @@ clean-bin:
 clean-man:
 	rm -f man/man1/git-crypt.1
 
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 # Install
-#
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
 INSTALL_MAN_TARGETS-yes = install-man
 INSTALL_MAN_TARGETS-no =
 INSTALL_TARGETS := install-bin $(INSTALL_MAN_TARGETS-$(ENABLE_MAN))
@@ -112,3 +112,15 @@ install-man: build-man
 	test \
 	clean clean-bin clean-man \
 	install install-bin install-man
+
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
+# release / ci
+# --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~ --- ~~~
+release-major:
+	gh workflow run prepare-release.yml -f bump=major
+
+release-minor:
+	gh workflow run prepare-release.yml -f bump=minor
+
+release-patch:
+	gh workflow run prepare-release.yml -f bump=patch
